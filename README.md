@@ -12,6 +12,9 @@ python svm_classifier.py
 To use Naive Bayes Gaussian and Logistic classifier:
 python nbg_lr_classifier.py
 
-###SVM ROC Curve
+### SVM ROC Curve
 ![ROC of the SVM](roc_svm.png)
+
+### SVM Accuracy Based on the Number of Features
+![ROC of the SVM](svm_accuracy.png)
 

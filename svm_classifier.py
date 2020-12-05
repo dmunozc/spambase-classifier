@@ -9,18 +9,12 @@ from sklearn import preprocessing
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.metrics import roc_curve, auc
 import numpy as np
-import csv
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import argparse
+import pandas as pd
 
-
-def features_training(
-    training_features,
-    test_features,
-    training_classes,
-    test_classes,
-    feature_selection,
-):
+def features_training(training_features, test_features, training_classes, test_classes, feature_selection):
     """Perform SVM linear classification. Return accuracies.
 
     Given the features in order of preference, perform SVM training and
@@ -30,19 +24,19 @@ def features_training(
     """
     accuracies = []
     # Get the first training and test feature data based on the first index.
-    training_data = np.array([training_features[:, feature_selection[0]]])
-    test_data = np.array([test_features[:, feature_selection[0]]])
+    training_data = training_features[:, feature_selection[0]].reshape(1, -1)
+    test_data = test_features[:, feature_selection[0]].reshape(1, -1)
     # For all features, perform classification.
     for i in range(1, len(training_features[0])):
         # Append next features.
         training_data = np.append(
             training_data,
-            np.array([training_features[:, feature_selection[i]]]),
+            training_features[:, feature_selection[i]].reshape(1, -1),
             axis=0,
         )
         test_data = np.append(
             test_data,
-            np.array([test_features[:, feature_selection[i]]]),
+            test_features[:, feature_selection[i]].reshape(1, -1),
             axis=0,
         )
 
@@ -58,6 +52,7 @@ def features_training(
         test_data_sc = test_data_t.copy()
         for i in range(len(test_data_sc)):
             test_data_sc[i] = (test_data_sc[i] - mean_train) / std_train
+
         # Perform classification.
         clf = svm.SVC(kernel="linear")
         clf.fit(training_data_sc, training_classes)
@@ -67,21 +62,13 @@ def features_training(
     return accuracies
 
 
-def random_feature_selection(
-    training_features, test_features, training_classes, test_classes,
-):
+def random_feature_selection(training_features, test_features, training_classes, test_classes):
     """Performs SVM classifaction using random features."""
     random_features = np.arange(57)
     # Randomize indices to access when training.
     np.random.shuffle(random_features)
     # Perform features training based on these random features.
-    accuracies = features_training(
-        training_features,
-        test_features,
-        training_classes,
-        test_classes,
-        random_features,
-    )
+    accuracies = features_training(training_features, test_features, training_classes, test_classes, random_features)
     features = 2
     for acc in accuracies:
         print(
@@ -93,9 +80,7 @@ def random_feature_selection(
         features += 1
 
 
-def weight_feature_selection(
-    training_features, test_features, training_classes, test_classes, weights,
-):
+def weight_feature_selection(training_features, test_features, training_classes, test_classes, weights):
     """Performs SVM classifaction using best features."""
     sorted_features = np.argsort(weights)[::-1]
     # Perform features training based on these sorted indices
@@ -117,9 +102,7 @@ def weight_feature_selection(
         features += 1
 
 
-def svm_train(
-    training_features, test_features, training_classes, test_classes,
-):
+def svm_train(training_features, test_features, training_classes, test_classes):
     """Gets weights from SVM training."""
     # Get the mean and std from the training data.
     std_train = training_features.std(axis=0)
@@ -131,6 +114,7 @@ def svm_train(
     # Use Scikit's preprocessing module to scale training data.
     X = preprocessing.scale(training_features)
     y = training_classes
+
     # Use a linear classifier.
     clf = svm.SVC(kernel="linear")
     clf.fit(X, y)
@@ -172,32 +156,20 @@ def svm_train(
     return clf.coef_
 
 
-def main():
-    features = []
-    class_type = []
-    data_reader = csv.reader(open("spambase.csv"), delimiter=",")
-    # Get all features and classes from csv file.
-    for row in data_reader:
-        features.append([float(i) for i in row[0:57]])
-        class_type.append(int(row[-1]))
+def main(data_file):
+    df = pd.read_csv(data_file, index_col=None, header=None)
 
-    features = np.asarray(features)
-    class_type = np.asarray(class_type)
+    # Get all features and classes from csv file.
+    features = df.iloc[:, :57].values
+    class_type = df.iloc[:, -1].values
 
     # Use Scikit's built in data splitter.
-    (
-        training_features,
-        test_features,
-        training_classes,
-        test_classes,
-    ) = train_test_split(
-        features, class_type, test_size=0.5, random_state=None
+    training_features, test_features, training_classes, test_classes, = train_test_split(
+        features, class_type, test_size=0.5, random_state=2814
     )
 
     # Get weights from SVM training.
-    weights = svm_train(
-        training_features, test_features, training_classes, test_classes,
-    )[0]
+    weights = svm_train(training_features, test_features, training_classes, test_classes)[0]
     print("Weight based Feature selection")
     # use this weight vector to perform feature selection based on weight
     weight_feature_selection(
@@ -217,4 +189,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    np.random.seed(2814)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-data", dest="data", help="spambase dataset", default="spambase.csv")
+    args = parser.parse_args()
+    main(args.data)
